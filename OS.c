@@ -227,35 +227,100 @@ void execute_instruction(char *instruction) {
             printf("Invalid assign instruction\n");
         }
     } else if (strcmp(token, "writeFile") == 0) {
-        // Write data to a file
-        // Implementation left as an exercise
-    } else if (strcmp(token, "readFile") == 0) {
-        // Read data from a file
-        // Implementation left as an exercise
-    } else if (strcmp(token, "printFromTo") == 0) {
-        // Print numbers from x to y
-        // Implementation left as an exercise
-    } else if (strcmp(token, "semWait") == 0) {
-        // Acquire a resource
-        token = strtok(NULL, " ");
-        if (token != NULL) {
-            printf("Waiting for resource: %s\n", token);
-            // Implement semaphore wait logic
+    // Write data to a file
+    token = strtok(NULL, " ");
+    if (token != NULL) {
+      char filename[20];
+      strcpy(filename, token);
+      token = strtok(NULL, " ");
+      if (token != NULL) {
+        // Implement logic to write data (token) to the file (filename)
+        // You can open the file in append mode ("a") and write the data
+        FILE *file = fopen(filename, "a");
+        if (file != NULL) {
+          fprintf(file, "%s\n", token);
+          fclose(file);
+          printf("Data written to file %s\n", filename);
         } else {
-            printf("Invalid semWait instruction\n");
+          printf("Error opening file for writing: %s\n", filename);
         }
-    } else if (strcmp(token, "semSignal") == 0) {
-        // Release a resource
-        token = strtok(NULL, " ");
-        if (token != NULL) {
-            printf("Releasing resource: %s\n", token);
-            // Implement semaphore signal logic
-        } else {
-            printf("Invalid semSignal instruction\n");
-        }
+      } else {
+        printf("Invalid writeFile instruction\n");
+      }
     } else {
-        printf("Unknown instruction: %s\n", token);
+      printf("Invalid writeFile instruction\n");
     }
+  } else if (strcmp(token, "readFile") == 0) {
+    // Read data from a file
+    token = strtok(NULL, " ");
+    if (token != NULL) {
+      char filename[20];
+      strcpy(filename, token);
+      // Implement logic to read data from the file (filename)
+      // You can open the file in read mode ("r") and read the first line
+      FILE *file = fopen(filename, "r");
+      if (file != NULL) {
+        char data[50];
+        if (fgets(data, sizeof(data), file) != NULL) {
+          // Remove newline character if present
+          char *newline = strchr(data, '\n');
+          if (newline != NULL) {
+            *newline = '\0';
+          }
+          printf("Data read from file %s: %s\n", filename, data);
+        } else {
+          printf("File is empty or error reading\n");
+        }
+        fclose(file);
+      } else {
+        printf("Error opening file for reading: %s\n", filename);
+      }
+    } else {
+      printf("Invalid readFile instruction\n");
+    }
+  } else if (strcmp(token, "printFromTo") == 0) {
+    token = strtok(NULL, " ");
+    if (token != NULL) {
+      int start, end;
+      char value_a[20], value_b[20];
+      if (sscanf(token, "%s", value_a) == 1) { // Read value into variable_a
+        token = strtok(NULL, " ");
+        if (token != NULL) {
+          if (sscanf(token, "%s", value_b) == 1) { // Read value into variable_b
+            sscanf(value_a, "%d", &start);
+            sscanf(value_b, "%d", &end);
+            // ... (existing code for printFromTo)
+          } else {
+            printf("Invalid printFromTo instruction (invalid end value)\n");
+          }
+        } else {
+          printf("Invalid printFromTo instruction (missing end value)\n");
+        }
+      } else {
+        printf("Invalid printFromTo instruction (invalid start value)\n");
+      }
+    } else {
+      printf("Invalid printFromTo instruction (missing start value)\n");
+    }
+  } else if (strcmp(token, "semWait") == 0) {
+    // Acquire a resource
+    token = strtok(NULL, " ");
+    if (token != NULL) {
+      semWait(token, -1); // -1 indicates the process ID is not known yet
+    } else {
+      printf("Invalid semWait instruction\n");
+    }
+  } else if (strcmp(token, "semSignal") == 0) {
+    // Release a resource
+    token = strtok(NULL, " ");
+    if (token != NULL) {
+      semSignal(token);
+    } else {
+      printf("Invalid semSignal instruction\n");
+    }
+  } else {
+    printf("Unknown instruction: %s\n", token);
+  }
 }
 
 // Function to read and interpret instructions from a text file
@@ -282,7 +347,7 @@ void interpret_file(const char *filename) {
 }
 
 int main() {
-  const char *filename = "Program_3.txt";
+  const char *filename = "/home/mohanad/CA/OS-Project/Program_1.txt";
     interpret_file(filename);
     return 0;
 }
