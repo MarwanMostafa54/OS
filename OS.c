@@ -15,6 +15,11 @@
 #define USER_OUTPUT_RESOURCE "userOutput"
 
 #define MAX_LINE_LENGTH 100
+#define MAX_PROCESSES 100
+
+int next_pid = 1;
+int pcb_count = 0;
+
 
 // Define PCB structure
 typedef struct {
@@ -25,7 +30,7 @@ typedef struct {
     int lower_bound;        // Lower Bound of memory space
     int upper_bound;        // Upper Bound of memory space
 } PCB;
-
+PCB pcb_table[MAX_PROCESSES];
 typedef struct {
     char name[20];
     char data[50];
@@ -60,35 +65,41 @@ void initialize_memory() {
     }
 }
 
+int get_next_pid() {
+    return next_pid++;
+}
+
 // Function to allocate memory for a process
-int allocate_memory(int pid, int num_lines_of_code) {
-    int lower_bound = -1;
-    int upper_bound = -1;
+int allocate_memory(int pid, int num_lines_of_code, int *lower_bound, int *upper_bound) {
+    *lower_bound = -1;
+    *upper_bound = -1;
 
     // Find consecutive empty slots in memory for the process
     for (int i = 0; i < MEMORY_SIZE; i++) {
         if (strcmp(memory[i].name, "") == 0) {
-            if (lower_bound == -1) {
-                lower_bound = i;
+            if (*lower_bound == -1) {
+                *lower_bound = i;
             }
-            if (i - lower_bound + 1 >= num_lines_of_code) {
-                upper_bound = i;
+            if (i - *lower_bound + 1 >= num_lines_of_code) {
+                *upper_bound = i;
                 break;
             }
         } else {
-            lower_bound = -1;  // Reset lower_bound if non-empty slot encountered
+            *lower_bound = -1;  // Reset lower_bound if non-empty slot encountered
         }
     }
 
     // Mark allocated memory slots with process ID
-    if (lower_bound != -1 && upper_bound != -1) {
-        for (int i = lower_bound; i <= upper_bound; i++) {
+    if (*lower_bound != -1 && *upper_bound != -1) {
+        for (int i = *lower_bound; i <= *upper_bound; i++) {
             sprintf(memory[i].name, "Process%d", pid);
         }
+        return 0;  // Success
     }
 
-    return lower_bound;  // Return lower bound of allocated memory space
+    return -1;  // Failure
 }
+
 // Define array of ready queues for different priority levels
 Process ready_queues[NUM_PRIORITY_LEVELS][100]; // Assuming a maximum of 100 processes per queue
 int num_processes[NUM_PRIORITY_LEVELS] = {0}; // Number of processes in each ready queue
@@ -306,7 +317,7 @@ void execute_instruction(char *instruction) {
     // Acquire a resource
     token = strtok(NULL, " ");
     if (token != NULL) {
-      semWait(token, -1); // -1 indicates the process ID is not known yet
+      semWait(token, 1); // -1 indicates the process ID is not known yet
     } else {
       printf("Invalid semWait instruction\n");
     }
@@ -331,7 +342,38 @@ void interpret_file(const char *filename) {
         return;
     }
 
+    int pid = get_next_pid();
     char line[MAX_LINE_LENGTH];
+    int line_count = 0;
+
+    // First pass: count the number of lines
+    while (fgets(line, sizeof(line), file) != NULL) {
+        line_count++;
+    }
+    rewind(file); // Reset file pointer to the beginning
+
+    // Allocate memory for the lines of code
+    int lower_bound, upper_bound;
+    if (allocate_memory(pid, line_count, &lower_bound, &upper_bound) == -1) {
+        printf("Error: Not enough memory to allocate for process %d\n", pid);
+        fclose(file);
+        return;
+    }
+
+    // Create PCB for the process
+    PCB pcb;
+    pcb.pid = pid;
+    strcpy(pcb.state, "Ready");
+    pcb.priority = 0;  // Default priority
+    pcb.program_counter = lower_bound;
+    pcb.lower_bound = lower_bound;
+    pcb.upper_bound = upper_bound;
+
+    // Store the PCB in the PCB table
+    pcb_table[pcb_count++] = pcb;
+
+    // Second pass: read the lines and store them in memory
+    int current_address = lower_bound;
     while (fgets(line, sizeof(line), file) != NULL) {
         // Remove newline character if present
         char *newline = strchr(line, '\n');
@@ -339,15 +381,41 @@ void interpret_file(const char *filename) {
             *newline = '\0';
         }
 
-        // Execute instruction
-        execute_instruction(line);
+        // Store the line in the memory array
+        strcpy(memory[current_address].data, line);
+        current_address++;
     }
 
     fclose(file);
 }
 
+
+
+// int main() {
+//   const char *filename = "Program_1.txt";
+//     interpret_file(filename);
+//     return 0;
+
+// }
+
 int main() {
-  const char *filename = "/home/mohanad/CA/OS-Project/Program_1.txt";
-    interpret_file(filename);
+    initialize_memory();
+    interpret_file("Program_1.txt");
+    interpret_file("Program_2.txt");
+    interpret_file("Program_3.txt");
+    // Optional: print memory content and PCB table for verification
+    for (int i = 0; i < MEMORY_SIZE; i++) {
+        if (strcmp(memory[i].name, "") != 0) {
+            printf("Memory[%d] Name: %s, Data: %s\n", i, memory[i].name, memory[i].data);
+        }
+    }
+
+    for (int i = 0; i < pcb_count; i++) {
+        PCB pcb = pcb_table[i];
+        printf("PCB[%d] PID: %d, State: %s, Priority: %d, PC: %d, Lower: %d, Upper: %d\n",
+            i, pcb.pid, pcb.state, pcb.priority, pcb.program_counter, pcb.lower_bound, pcb.upper_bound);
+    }
+
     return 0;
 }
+
