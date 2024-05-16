@@ -48,7 +48,8 @@ typedef struct {
     int blocked_queue[100]; // Queue to store PIDs of blocked processes
     int num_blocked;        // Number of processes blocked on this resource
 } Mutex;
-
+int a;
+int b;
 // Define a structure to represent the main memory
 MemoryWord memory[MEMORY_SIZE];
 Mutex mutexes[3] = {
@@ -237,10 +238,13 @@ printf("Token1: %s \n",Input);
         printf("Token2: %s \n",Input);
         if (Input != NULL) {
             strcpy(variable, Input);
-            int num;
-                    scanf("%d", &num);
-                    strcpy(value, Input);
-                    printf("Assigned value %d to variable %s\n", num, variable);
+                scanf("%s", value);
+                    if(strcmp(Input, "a") == 0){
+                        a=value;
+                    }else{
+                        b=value;
+                    }
+                printf("Assigned value %s to variable %s\n", value, variable);
             } else {
                 printf("Invalid assign instruction\n");
             }
