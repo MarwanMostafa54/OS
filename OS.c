@@ -3,192 +3,202 @@
 #include <string.h>
 
 #define MEMORY_SIZE 60
-#define MAX_LINE_LENGTH 100
-#define MAX_PROCESSES 10
-#define MAX_MUTEXES 3
+#define MAX_PROCESS_VARS 3
 
-// Enum to represent process states
-typedef enum {
-    READY,
-    BLOCKED
-} ProcessState;
 
-// Data structure for Process Control Block (PCB)
+#define NUM_PRIORITY_LEVELS 4
+#define BASE_QUANTUM 1
+
+
+#define FILE_RESOURCE "file"
+#define USER_INPUT_RESOURCE "userInput"
+#define USER_OUTPUT_RESOURCE "userOutput"
+// Define PCB structure
 typedef struct {
-    int process_id;
-    ProcessState state;
-    int priority;
-    int program_counter;
-    int lower_bound;
-    int upper_bound;
+    int pid;                // Process ID
+    char state[20];         // Process State
+    int priority;           // Current Priority
+    int program_counter;    // Program Counter
+    int lower_bound;        // Lower Bound of memory space
+    int upper_bound;        // Upper Bound of memory space
 } PCB;
 
-// Data structure to represent a memory word
 typedef struct {
     char name[20];
-    char data[MAX_LINE_LENGTH];
+    char data[50];
 } MemoryWord;
 
-// Data structure to represent a mutex
 typedef struct {
-    int id;
-    int available;
+    int pid;
+    int priority;
+} Process;
+
+
+typedef struct {
+    char name[20];          // Name of the resource
+    int locked;             // Indicates if the resource is locked (1) or not (0)
+    int blocked_queue[100]; // Queue to store PIDs of blocked processes
+    int num_blocked;        // Number of processes blocked on this resource
 } Mutex;
 
-MemoryWord memory[MEMORY_SIZE]; // Array to represent memory
-Mutex mutexes[MAX_MUTEXES]; // Array to store mutexes
-PCB processes[MAX_PROCESSES]; // Array to store processes
-int num_processes = 0;
-int next_free_memory_index = 0; // Index to track the next free memory location
+// Define a structure to represent the main memory
+MemoryWord memory[MEMORY_SIZE];
 
+Mutex mutexes[3] = {
+    {FILE_RESOURCE, 0, {0}, 0},
+    {USER_INPUT_RESOURCE, 0, {0}, 0},
+    {USER_OUTPUT_RESOURCE, 0, {0}, 0}
+};
 // Function to initialize memory
-void initializeMemory() {
+void initialize_memory() {
     for (int i = 0; i < MEMORY_SIZE; i++) {
         strcpy(memory[i].name, "");
         strcpy(memory[i].data, "");
     }
 }
 
-// Function to initialize mutexes
-void initializeMutexes() {
-    for (int i = 0; i < MAX_MUTEXES; i++) {
-        mutexes[i].id = i;
-        mutexes[i].available = 1; // Mutex initially available
-    }
-}
-
 // Function to allocate memory for a process
-void allocateMemory(int process_id, int lower_bound, int upper_bound) {
-    PCB pcb;
-    pcb.process_id = process_id;
-    pcb.state = READY;
-    pcb.priority = 1; // Default priority
-    pcb.program_counter = 0;
-    pcb.lower_bound = lower_bound;
-    pcb.upper_bound = upper_bound;
+int allocate_memory(int pid, int num_lines_of_code) {
+    int lower_bound = -1;
+    int upper_bound = -1;
 
-    // Store PCB in memory
-    snprintf(memory[next_free_memory_index].data, sizeof(memory[next_free_memory_index].data), "%d %d %d %d %d %d",
-             pcb.process_id, pcb.state, pcb.priority, pcb.program_counter, pcb.lower_bound, pcb.upper_bound);
-    strcpy(memory[next_free_memory_index].name, "P"); // Prefix PCB name with 'P'
-    next_free_memory_index++;
-
-    printf("Allocated memory for Process %d\n", process_id);
-}
-
-// Function to perform semWait operation on a mutex
-void semWait(int mutex_id, PCB *process) {
-    if (mutexes[mutex_id].available) {
-        mutexes[mutex_id].available = 0; // Mutex is now unavailable
-    } else {
-        // Block the process
-        process->state = BLOCKED;
-        printf("Process %d blocked on mutex %d\n", process->process_id, mutex_id);
-    }
-}
-
-// Function to perform semSignal operation on a mutex
-void semSignal(int mutex_id) {
-    mutexes[mutex_id].available = 1; // Mutex is now available
-    printf("Mutex %d signaled\n", mutex_id);
-}
-
-// Function to execute an instruction
-void executeInstruction(PCB *process, const char *instruction) {
-    char *token = strtok((char *)instruction, " ");
-    if (strcmp(token, "print") == 0) {
-        int x = atoi(strtok(NULL, " "));
-        printf("Process %d: Printing %d\n", process->process_id, x);
-    } else if (strcmp(token, "assign") == 0) {
-        char *variable = strtok(NULL, " ");
-        int y = atoi(strtok(NULL, " "));
-        printf("Process %d: Assigning %d to %s\n", process->process_id, y, variable);
-    } else if (strcmp(token, "writeFile") == 0) {
-        char *filename = strtok(NULL, " ");
-        char *data = strtok(NULL, " ");
-        printf("Process %d: Writing data to %s\n", process->process_id, filename);
-    } else if (strcmp(token, "readFile") == 0) {
-        char *filename = strtok(NULL, " ");
-        printf("Process %d: Reading data from %s\n", process->process_id, filename);
-    } else if (strcmp(token, "printFromTo") == 0) {
-        int x = atoi(strtok(NULL, " "));
-        int y = atoi(strtok(NULL, " "));
-        printf("Process %d: Printing numbers from %d to %d\n", process->process_id, x, y);
-    } else if (strcmp(token, "semWait") == 0) {
-        int mutex_id = atoi(strtok(NULL, " "));
-        semWait(mutex_id, process);
-    } else if (strcmp(token, "semSignal") == 0) {
-        int mutex_id = atoi(strtok(NULL, " "));
-        semSignal(mutex_id);
-    } else {
-        printf("Error: Invalid instruction\n");
-    }
-}
-
-// Function to execute a program
-void executeProgram(PCB *process, const char *filename) {
-    FILE *file = fopen(filename, "r");
-    if (file != NULL) {
-        char buffer[MAX_LINE_LENGTH];
-        while (fgets(buffer, MAX_LINE_LENGTH, file) != NULL) {
-            executeInstruction(process, buffer);
-        }
-        fclose(file);
-    } else {
-        printf("Error: Cannot open file %s\n", filename);
-    }
-}
-
-// Function to schedule processes using multilevel feedback model
-void scheduleProcesses() {
-    // Iterate through priority levels (1 to 4)
-    for (int priority = 1; priority <= 4; priority++) {
-        // Iterate through processes
-        for (int i = 0; i < num_processes; i++) {
-            PCB *process = &processes[i];
-            // Check if process is in ready state and has the current priority
-            if (process->state == READY && process->priority == priority) {
-                // Execute process
-                printf("Executing Process %d\n", process->process_id);
-                executeProgram(process, "program.txt");
-                // Increment program counter
-                process->program_counter++;
-                // Check if process has completed its execution
-                if (process->program_counter >= process->upper_bound) {
-                    // Reset program counter
-                    process->program_counter = 0;
-                    // Lower process priority (if not already at lowest priority)
-                    if (process->priority < 4) {
-                        process->priority++;
-                    }
-                }
-            }
-        }
-    }
-}
-
-// Function to display memory contents
-void displayMemory() {
-    printf("Memory Contents:\n");
+    // Find consecutive empty slots in memory for the process
     for (int i = 0; i < MEMORY_SIZE; i++) {
-        printf("%d: %s - %s\n", i, memory[i].name, memory[i].data);
+        if (strcmp(memory[i].name, "") == 0) {
+            if (lower_bound == -1) {
+                lower_bound = i;
+            }
+            if (i - lower_bound + 1 >= num_lines_of_code) {
+                upper_bound = i;
+                break;
+            }
+        } else {
+            lower_bound = -1;  // Reset lower_bound if non-empty slot encountered
+        }
     }
+
+    // Mark allocated memory slots with process ID
+    if (lower_bound != -1 && upper_bound != -1) {
+        for (int i = lower_bound; i <= upper_bound; i++) {
+            sprintf(memory[i].name, "Process%d", pid);
+        }
+    }
+
+    return lower_bound;  // Return lower bound of allocated memory space
+}
+// Define array of ready queues for different priority levels
+Process ready_queues[NUM_PRIORITY_LEVELS][100]; // Assuming a maximum of 100 processes per queue
+int num_processes[NUM_PRIORITY_LEVELS] = {0}; // Number of processes in each ready queue
+
+// Define array to store quantum for each priority level
+int quantum[NUM_PRIORITY_LEVELS] = {BASE_QUANTUM, BASE_QUANTUM * 2, BASE_QUANTUM * 4, BASE_QUANTUM * 8};
+
+// Function to add process to ready queue
+void add_to_ready_queue(Process process) {
+    ready_queues[process.priority - 1][num_processes[process.priority - 1]] = process;
+    num_processes[process.priority - 1]++;
 }
 
+// Function to select next process for execution
+Process select_next_process() {
+    Process next_process;
+
+    // Iterate through priority levels starting from highest
+    for (int i = 0; i < NUM_PRIORITY_LEVELS; i++) {
+        // Check if there are processes in the current priority level
+        if (num_processes[i] > 0) {
+            // Select the first process in the ready queue of the current priority level
+            next_process = ready_queues[i][0];
+
+            // Move processes in the ready queue
+            for (int j = 0; j < num_processes[i] - 1; j++) {
+                ready_queues[i][j] = ready_queues[i][j + 1];
+            }
+
+            // Decrement number of processes in the ready queue
+            num_processes[i]--;
+            break;
+        }
+    }
+
+    return next_process;
+} 
+
+void semWait(char resource_name[], int pid) {
+    // Find the mutex corresponding to the resource
+    int index = -1;
+    for (int i = 0; i < 3; i++) {
+        if (strcmp(mutexes[i].name, resource_name) == 0) {
+            index = i;
+            break;
+        }
+    }
+
+    // If the resource is not found, return
+    if (index == -1) {
+        printf("Resource not found\n");
+        return;
+    }
+
+    // If the resource is locked, block the process and add it to the blocked queue
+    if (mutexes[index].locked) {
+        mutexes[index].blocked_queue[mutexes[index].num_blocked] = pid;
+        mutexes[index].num_blocked++;
+        printf("Process %d blocked on resource %s\n", pid, resource_name);
+    } else {
+        mutexes[index].locked = 1; // Lock the resource
+        printf("Process %d acquired resource %s\n", pid, resource_name);
+    }
+}
+void semSignal(char resource_name[]) {
+    // Find the mutex corresponding to the resource
+    int index = -1;
+    for (int i = 0; i < 3; i++) {
+        if (strcmp(mutexes[i].name, resource_name) == 0) {
+            index = i;
+            break;
+        }
+    }
+
+    // If the resource is not found, return
+    if (index == -1) {
+        printf("Resource not found\n");
+        return;
+    }
+
+    // If there are blocked processes, unblock the highest priority process
+    if (mutexes[index].num_blocked > 0) {
+        int pid_to_unblock = mutexes[index].blocked_queue[0]; // Assuming highest priority is at index 0
+        // Move other blocked processes forward in the array
+        for (int i = 1; i < mutexes[index].num_blocked; i++) {
+            mutexes[index].blocked_queue[i - 1] = mutexes[index].blocked_queue[i];
+        }
+        mutexes[index].num_blocked--;
+
+        // Unblock the process (you can implement logic to move the unblocked process to its ready queue based on priority)
+        printf("Process %d unblocked on resource %s\n", pid_to_unblock, resource_name);
+    } else {
+        // Otherwise, unlock the resource
+        mutexes[index].locked = 0;
+        printf("Resource %s released\n", resource_name);
+    }
+}
 int main() {
-    initializeMemory(); // Initialize memory
-    initializeMutexes(); // Initialize mutexes
+    // Initialize memory
+    initialize_memory();
 
-    // Example: Create some processes
-    allocateMemory(0, 0, 2);
-    allocateMemory(1, 3, 5);
-    num_processes = 2;
+    // Example: Acquire and release a mutex
+    int process_id = 123; // Sample process ID
+    semWait(FILE_RESOURCE, process_id); // Acquire mutex for file access
 
-    // Schedule processes
-    scheduleProcesses();
+    // Simulate some processing time
+    printf("Process %d is performing some tasks...\n", process_id);
+    // Assume some processing time
+    for (int i = 0; i < 1000000; i++) {
+        // Do some dummy processing
+    }
 
-    // Display memory contents
-    displayMemory();
+    semSignal(FILE_RESOURCE); // Release mutex for file access
 
     return 0;
 }
