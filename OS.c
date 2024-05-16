@@ -51,7 +51,6 @@ typedef struct {
 
 // Define a structure to represent the main memory
 MemoryWord memory[MEMORY_SIZE];
-
 Mutex mutexes[3] = {
     {FILE_RESOURCE, 0, {0}, 0},
     {USER_INPUT_RESOURCE, 0, {0}, 0},
@@ -71,6 +70,7 @@ int get_next_pid() {
 
 // Function to allocate memory for a process
 int allocate_memory(int pid, int num_lines_of_code, int *lower_bound, int *upper_bound) {
+    printf("%d \n",pid);
     *lower_bound = -1;
     *upper_bound = -1;
 
@@ -140,7 +140,15 @@ Process select_next_process() {
 
 void semWait(char resource_name[], int pid) {
     // Find the mutex corresponding to the resource
+    
+    if(strstr(resource_name,"serInput")!= NULL){
+        resource_name="userInput"; 
+    }else if(strstr(resource_name,"serOutput")!= NULL){
+        resource_name="userOutput"; 
+    }
+    printf("%s \n",resource_name);
     int index = -1;
+        
     for (int i = 0; i < 3; i++) {
         if (strcmp(mutexes[i].name, resource_name) == 0) {
             index = i;
@@ -165,6 +173,11 @@ void semWait(char resource_name[], int pid) {
     }
 }
 void semSignal(char resource_name[]) {
+    if(strstr(resource_name,"serInput")!= NULL){
+        resource_name="userInput"; 
+    }else if(strstr(resource_name,"serOutput")!= NULL){
+        resource_name="userOutput"; 
+    }
     // Find the mutex corresponding to the resource
     int index = -1;
     for (int i = 0; i < 3; i++) {
@@ -199,57 +212,51 @@ void semSignal(char resource_name[]) {
 }
 
 void execute_instruction(char *instruction) {
-    char *token = strtok(instruction, " ");
-    if (token == NULL) {
+ printf(" %s\n", instruction);
+
+     char *Input = strtok(instruction, " ");
+    if (Input == NULL) {
         printf("Invalid instruction: %s\n", instruction);
         return;
     }
-
+printf("Token1: %s \n",Input);
     // Check the instruction type
-    if (strcmp(token, "print") == 0) {
+    if (strcmp(Input, "print") == 0) {
         // Print the value
-        token = strtok(NULL, " ");
-        if (token != NULL) {
-            printf("%s\n", token);
+        Input = strtok(NULL, " ");
+        if (Input != NULL) {
+            printf("%s\n", Input);
         } else {
             printf("Invalid print instruction\n");
         }
-    } else if (strcmp(token, "assign") == 0) {
-        // Assign a value
+    } else if (strcmp(Input, "assign") == 0) {
+       
         char variable[10];
         char value[20];
-        token = strtok(NULL, " ");
-        if (token != NULL) {
-            strcpy(variable, token);
-            token = strtok(NULL, " ");
-            if (token != NULL) {
-                if (strcmp(token, "input") == 0) {
-                    printf("Please enter a value for variable %s: ", variable);
-                    scanf("%s", value);
-                    printf("Assigned value %s to variable %s\n", value, variable);
-                } else {
-                    strcpy(value, token);
-                    printf("Assigned value %s to variable %s\n", value, variable);
-                }
+        Input = strtok(NULL, " ");
+        printf("Token2: %s \n",Input);
+        if (Input != NULL) {
+            strcpy(variable, Input);
+            int num;
+                    scanf("%d", &num);
+                    strcpy(value, Input);
+                    printf("Assigned value %d to variable %s\n", num, variable);
             } else {
                 printf("Invalid assign instruction\n");
             }
-        } else {
-            printf("Invalid assign instruction\n");
-        }
-    } else if (strcmp(token, "writeFile") == 0) {
+    } else if (strcmp(Input, "writeFile") == 0) {
     // Write data to a file
-    token = strtok(NULL, " ");
-    if (token != NULL) {
+    Input = strtok(NULL, " ");
+    if (Input != NULL) {
       char filename[20];
-      strcpy(filename, token);
-      token = strtok(NULL, " ");
-      if (token != NULL) {
-        // Implement logic to write data (token) to the file (filename)
+      strcpy(filename, Input);
+      Input = strtok(NULL, " ");
+      if (Input != NULL) {
+        // Implement logic to write data (Input) to the file (filename)
         // You can open the file in append mode ("a") and write the data
         FILE *file = fopen(filename, "a");
         if (file != NULL) {
-          fprintf(file, "%s\n", token);
+          fprintf(file, "%s\n", Input);
           fclose(file);
           printf("Data written to file %s\n", filename);
         } else {
@@ -261,12 +268,12 @@ void execute_instruction(char *instruction) {
     } else {
       printf("Invalid writeFile instruction\n");
     }
-  } else if (strcmp(token, "readFile") == 0) {
+  } else if (strcmp(Input, "readFile") == 0) {
     // Read data from a file
-    token = strtok(NULL, " ");
-    if (token != NULL) {
+    Input = strtok(NULL, " ");
+    if (Input != NULL) {
       char filename[20];
-      strcpy(filename, token);
+      strcpy(filename, Input);
       // Implement logic to read data from the file (filename)
       // You can open the file in read mode ("r") and read the first line
       FILE *file = fopen(filename, "r");
@@ -289,18 +296,24 @@ void execute_instruction(char *instruction) {
     } else {
       printf("Invalid readFile instruction\n");
     }
-  } else if (strcmp(token, "printFromTo") == 0) {
-    token = strtok(NULL, " ");
-    if (token != NULL) {
+  } else if (strcmp(Input, "printFromTo") == 0) {
+    Input = strtok(NULL, " ");
+    
+    if (Input != NULL) {
       int start, end;
       char value_a[20], value_b[20];
-      if (sscanf(token, "%s", value_a) == 1) { // Read value into variable_a
-        token = strtok(NULL, " ");
-        if (token != NULL) {
-          if (sscanf(token, "%s", value_b) == 1) { // Read value into variable_b
+      if (sscanf(Input, "%s", value_a) == 1) { // Read value into variable_a
+        Input = strtok(NULL, " ");
+        
+        if (Input != NULL) {
+          if (sscanf(Input, "%s", value_b) == 1) { // Read value into variable_b
             sscanf(value_a, "%d", &start);
             sscanf(value_b, "%d", &end);
-            // ... (existing code for printFromTo)
+            
+            for (int i = start; i <= end; i++) {
+              printf("%d ", i);
+            }
+            
           } else {
             printf("Invalid printFromTo instruction (invalid end value)\n");
           }
@@ -313,24 +326,28 @@ void execute_instruction(char *instruction) {
     } else {
       printf("Invalid printFromTo instruction (missing start value)\n");
     }
-  } else if (strcmp(token, "semWait") == 0) {
+  } else if (strcmp(Input, "semWait") == 0) {
     // Acquire a resource
-    token = strtok(NULL, " ");
-    if (token != NULL) {
-      semWait(token, 1); // -1 indicates the process ID is not known yet
+
+    
+    if (Input != NULL) {
+    Input = strtok(NULL, " ");
+      char* resource_name = strdup(Input); 
+        printf("Token: %s\n", resource_name);
+        semWait(resource_name, 1); 
     } else {
       printf("Invalid semWait instruction\n");
     }
-  } else if (strcmp(token, "semSignal") == 0) {
+  } else if (strcmp(Input, "semSignal") == 0) {
     // Release a resource
-    token = strtok(NULL, " ");
-    if (token != NULL) {
-      semSignal(token);
+    Input = strtok(NULL, " ");
+    if (Input != NULL) { 
+      semSignal(Input);
     } else {
       printf("Invalid semSignal instruction\n");
     }
   } else {
-    printf("Unknown instruction: %s\n", token);
+    printf("Unknown instruction: %s\n", Input);
   }
 }
 
@@ -402,9 +419,9 @@ int main() {
     initialize_memory();
     interpret_file("Program_1.txt");
 
-    interpret_file("Program_2.txt");
+    // interpret_file("Program_2.txt");
 
-    interpret_file("Program_3.txt");
+    // interpret_file("Program_3.txt");
     for (int i = 0; i < MEMORY_SIZE; i++) {
         if (strcmp(memory[i].name, "") != 0) {
             printf("Memory[%d] Name: %s, Data: %s\n", i, memory[i].name, memory[i].data);
@@ -417,8 +434,16 @@ int main() {
             i, pcb.pid, pcb.state, pcb.priority, pcb.program_counter, pcb.lower_bound, pcb.upper_bound);
     }
 
-   
-
+    // Process currPro = select_next_process();
+    
+    // Fetch the instruction from the memory using the program counter of the current process
+ 
+for (int i = 0; i < 7; i++) {
+    // Execute the fetched instruction
+    char *currInst = memory[i].data;
+    printf("%s",memory[i].data);
+    execute_instruction(currInst);
+}
     return 0;
 }
 
