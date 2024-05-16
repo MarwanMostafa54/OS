@@ -363,7 +363,7 @@ void interpret_file(const char *filename) {
     // Create PCB for the process
     PCB pcb;
     pcb.pid = pid;
-    strcpy(pcb.state, "Ready");
+    strcpy(pcb.state, "Not Ready");
     pcb.priority = 0;  // Default priority
     pcb.program_counter = lower_bound;
     pcb.lower_bound = lower_bound;
@@ -401,9 +401,10 @@ void interpret_file(const char *filename) {
 int main() {
     initialize_memory();
     interpret_file("Program_1.txt");
+
     interpret_file("Program_2.txt");
+
     interpret_file("Program_3.txt");
-    // Optional: print memory content and PCB table for verification
     for (int i = 0; i < MEMORY_SIZE; i++) {
         if (strcmp(memory[i].name, "") != 0) {
             printf("Memory[%d] Name: %s, Data: %s\n", i, memory[i].name, memory[i].data);
@@ -415,6 +416,8 @@ int main() {
         printf("PCB[%d] PID: %d, State: %s, Priority: %d, PC: %d, Lower: %d, Upper: %d\n",
             i, pcb.pid, pcb.state, pcb.priority, pcb.program_counter, pcb.lower_bound, pcb.upper_bound);
     }
+
+   
 
     return 0;
 }
