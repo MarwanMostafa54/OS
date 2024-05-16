@@ -13,6 +13,9 @@
 #define FILE_RESOURCE "file"
 #define USER_INPUT_RESOURCE "userInput"
 #define USER_OUTPUT_RESOURCE "userOutput"
+
+#define MAX_LINE_LENGTH 100
+
 // Define PCB structure
 typedef struct {
     int pid;                // Process ID
@@ -183,22 +186,103 @@ void semSignal(char resource_name[]) {
         printf("Resource %s released\n", resource_name);
     }
 }
-int main() {
-    // Initialize memory
-    initialize_memory();
 
-    // Example: Acquire and release a mutex
-    int process_id = 123; // Sample process ID
-    semWait(FILE_RESOURCE, process_id); // Acquire mutex for file access
-
-    // Simulate some processing time
-    printf("Process %d is performing some tasks...\n", process_id);
-    // Assume some processing time
-    for (int i = 0; i < 1000000; i++) {
-        // Do some dummy processing
+void execute_instruction(char *instruction) {
+    char *token = strtok(instruction, " ");
+    if (token == NULL) {
+        printf("Invalid instruction: %s\n", instruction);
+        return;
     }
 
-    semSignal(FILE_RESOURCE); // Release mutex for file access
+    // Check the instruction type
+    if (strcmp(token, "print") == 0) {
+        // Print the value
+        token = strtok(NULL, " ");
+        if (token != NULL) {
+            printf("%s\n", token);
+        } else {
+            printf("Invalid print instruction\n");
+        }
+    } else if (strcmp(token, "assign") == 0) {
+        // Assign a value
+        char variable[10];
+        char value[20];
+        token = strtok(NULL, " ");
+        if (token != NULL) {
+            strcpy(variable, token);
+            token = strtok(NULL, " ");
+            if (token != NULL) {
+                if (strcmp(token, "input") == 0) {
+                    printf("Please enter a value for variable %s: ", variable);
+                    scanf("%s", value);
+                    printf("Assigned value %s to variable %s\n", value, variable);
+                } else {
+                    strcpy(value, token);
+                    printf("Assigned value %s to variable %s\n", value, variable);
+                }
+            } else {
+                printf("Invalid assign instruction\n");
+            }
+        } else {
+            printf("Invalid assign instruction\n");
+        }
+    } else if (strcmp(token, "writeFile") == 0) {
+        // Write data to a file
+        // Implementation left as an exercise
+    } else if (strcmp(token, "readFile") == 0) {
+        // Read data from a file
+        // Implementation left as an exercise
+    } else if (strcmp(token, "printFromTo") == 0) {
+        // Print numbers from x to y
+        // Implementation left as an exercise
+    } else if (strcmp(token, "semWait") == 0) {
+        // Acquire a resource
+        token = strtok(NULL, " ");
+        if (token != NULL) {
+            printf("Waiting for resource: %s\n", token);
+            // Implement semaphore wait logic
+        } else {
+            printf("Invalid semWait instruction\n");
+        }
+    } else if (strcmp(token, "semSignal") == 0) {
+        // Release a resource
+        token = strtok(NULL, " ");
+        if (token != NULL) {
+            printf("Releasing resource: %s\n", token);
+            // Implement semaphore signal logic
+        } else {
+            printf("Invalid semSignal instruction\n");
+        }
+    } else {
+        printf("Unknown instruction: %s\n", token);
+    }
+}
 
+// Function to read and interpret instructions from a text file
+void interpret_file(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        printf("Error opening file: %s\n", filename);
+        return;
+    }
+
+    char line[MAX_LINE_LENGTH];
+    while (fgets(line, sizeof(line), file) != NULL) {
+        // Remove newline character if present
+        char *newline = strchr(line, '\n');
+        if (newline != NULL) {
+            *newline = '\0';
+        }
+
+        // Execute instruction
+        execute_instruction(line);
+    }
+
+    fclose(file);
+}
+
+int main() {
+  const char *filename = "Program_3.txt";
+    interpret_file(filename);
     return 0;
 }
