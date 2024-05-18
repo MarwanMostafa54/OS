@@ -19,6 +19,12 @@
 
 int next_pid = 1;
 int pcb_count = 0;
+int a_lower, a_upper, b_lower, b_upper;
+int pid_a = 4; 
+int pid_b = 5; 
+int num_lines_of_code = 1; 
+char value_a[50];
+char value_b[50];
 
 
 // Define PCB structure
@@ -146,8 +152,9 @@ void semWait(char resource_name[], int pid) {
         resource_name="userInput"; 
     }else if(strstr(resource_name,"serOutput")!= NULL){
         resource_name="userOutput"; 
+    }else if(strstr(resource_name,"ile")!= NULL){
+        resource_name="file"; 
     }
-    printf("%s \n",resource_name);
     int index = -1;
         
     for (int i = 0; i < 3; i++) {
@@ -178,6 +185,8 @@ void semSignal(char resource_name[]) {
         resource_name="userInput"; 
     }else if(strstr(resource_name,"serOutput")!= NULL){
         resource_name="userOutput"; 
+    }else if(strstr(resource_name,"ile")!= NULL){
+        resource_name="file"; 
     }
     // Find the mutex corresponding to the resource
     int index = -1;
@@ -213,123 +222,119 @@ void semSignal(char resource_name[]) {
 }
 
 void execute_instruction(char *instruction) {
- printf(" %s\n", instruction);
+printf("\n\n  Instruction: %s \n",instruction);
 
      char *Input = strtok(instruction, " ");
     if (Input == NULL) {
         printf("Invalid instruction: %s\n", instruction);
         return;
     }
-printf("Token1: %s \n",Input);
     // Check the instruction type
     if (strcmp(Input, "print") == 0) {
         // Print the value
         Input = strtok(NULL, " ");
         if (Input != NULL) {
-            printf("%s\n", Input);
+           
         } else {
             printf("Invalid print instruction\n");
         }
-    } else if (strcmp(Input, "assign") == 0) {
-       
-        char variable[10];
-        char value[20];
-        Input = strtok(NULL, " ");
-        printf("Token2: %s \n",Input);
-        if (Input != NULL) {
-            strcpy(variable, Input);
-                scanf("%s", value);
-                    if(strcmp(Input, "a") == 0){
-                        a=value;
-                    }else{
-                        b=value;
-                    }
-                printf("Assigned value %s to variable %s\n", value, variable);
-            } else {
-                printf("Invalid assign instruction\n");
-            }
-    } else if (strcmp(Input, "writeFile") == 0) {
-    // Write data to a file
-    Input = strtok(NULL, " ");
-    if (Input != NULL) {
-      char filename[20];
-      strcpy(filename, Input);
-      Input = strtok(NULL, " ");
-      if (Input != NULL) {
-        // Implement logic to write data (Input) to the file (filename)
-        // You can open the file in append mode ("a") and write the data
-        FILE *file = fopen(filename, "a");
-        if (file != NULL) {
-          fprintf(file, "%s\n", Input);
-          fclose(file);
-          printf("Data written to file %s\n", filename);
-        } else {
-          printf("Error opening file for writing: %s\n", filename);
-        }
-      } else {
-        printf("Invalid writeFile instruction\n");
-      }
-    } else {
-      printf("Invalid writeFile instruction\n");
-    }
-  } else if (strcmp(Input, "readFile") == 0) {
-    // Read data from a file
-    Input = strtok(NULL, " ");
-    if (Input != NULL) {
-      char filename[20];
-      strcpy(filename, Input);
-      // Implement logic to read data from the file (filename)
-      // You can open the file in read mode ("r") and read the first line
-      FILE *file = fopen(filename, "r");
-      if (file != NULL) {
-        char data[50];
-        if (fgets(data, sizeof(data), file) != NULL) {
-          // Remove newline character if present
-          char *newline = strchr(data, '\n');
-          if (newline != NULL) {
-            *newline = '\0';
-          }
-          printf("Data read from file %s: %s\n", filename, data);
-        } else {
-          printf("File is empty or error reading\n");
-        }
-        fclose(file);
-      } else {
-        printf("Error opening file for reading: %s\n", filename);
-      }
-    } else {
-      printf("Invalid readFile instruction\n");
-    }
-  } else if (strcmp(Input, "printFromTo") == 0) {
-    Input = strtok(NULL, " ");
-    
-    if (Input != NULL) {
-      int start, end;
-      char value_a[20], value_b[20];
-      if (sscanf(Input, "%s", value_a) == 1) { // Read value into variable_a
+    } else if (strcmp(Input, "assign") == 0) {                
         Input = strtok(NULL, " ");
         
         if (Input != NULL) {
-          if (sscanf(Input, "%s", value_b) == 1) { // Read value into variable_b
-            sscanf(value_a, "%d", &start);
-            sscanf(value_b, "%d", &end);
-            
-            for (int i = start; i <= end; i++) {
-              printf("%d ", i);
+                    // printf("%s",Input);
+                    if(strcmp(Input, "a") == 0){
+                     Input = strtok(NULL, " ");
+                     if(strcmp(Input,"readFile")==0){
+                    Input = strtok(NULL, " ");
+                if (Input != NULL) {
+                FILE *file = fopen(memory[a_lower].data, "r");
+                if (file != NULL) {
+                    char data[50];
+                    if (fgets(data, sizeof(data), file) != NULL) {
+                    char *newline = strchr(data, '\n');
+                    if (newline != NULL) {
+                        *newline = '\0';
+                    }
+                    printf("Data read from file %s: %s\n", memory[a_lower].data, data);
+                    } else {
+                    printf("File is empty or error reading\n");
+                    }
+                    fclose(file);
+                } else {
+                    printf("Error opening file for reading: %s\n", memory[a_lower].data);
+                }
+                }
+                  }
+            else{
+                       if (allocate_memory(pid_a, num_lines_of_code, &a_lower, &a_upper) == 0) {
+                            scanf("%s", value_a);
+                        sprintf(memory[a_lower].data, "%s", value_a);
+                            printf("Memory allocated for variable 'a'\n");
+                            } else {
+                            printf("Failed to allocate memory for variable 'a'\n");
+                            }
+                  }
+                  }else if(strcmp(Input, "b") == 0){
+                        Input = strtok(NULL, " ");
+                      printf(" %s  ",Input);
+                if(strcmp(Input,"readFile")==0){
+                    Input = strtok(NULL, " ");
+                if (Input != NULL) {
+                FILE *file = fopen(memory[a_lower].data, "r");
+                if (file != NULL) {
+                    char data[50];
+                    if (fgets(data, sizeof(data), file) != NULL) {
+                    char *newline = strchr(data, '\n');
+                    if (newline != NULL) {
+                        *newline = '\0';
+                    }
+                    printf("Data read from file %s: %s\n", memory[a_lower].data, data);
+                    } else {
+                    printf("File is empty or error reading\n");
+                    }
+                    fclose(file);
+                } else {
+                    printf("Error opening file for reading: %s\n", memory[a_lower].data);
+                }
+                }
+                  
+            }else{
+                       if (allocate_memory(pid_b, num_lines_of_code, &b_lower, &b_upper) == 0) {
+                                scanf("%s", value_b);
+                        sprintf(memory[b_lower].data, "%s", value_b);
+
+                            printf("Memory allocated for variable 'b'\n");
+                        } else {
+                            printf("Failed to allocate memory for variable 'b'\n");
+                        }                    
+                    }
             }
-            
-          } else {
-            printf("Invalid printFromTo instruction (invalid end value)\n");
-          }
-        } else {
-          printf("Invalid printFromTo instruction (missing end value)\n");
+             else {
+                printf("Invalid assign instruction\n");
+            }
         }
-      } else {
-        printf("Invalid printFromTo instruction (invalid start value)\n");
-      }
-    } else {
-      printf("Invalid printFromTo instruction (missing start value)\n");
+    } else if (strcmp(Input, "writeFile") == 0) {
+    Input = strtok(NULL, " ");
+    if (Input != NULL) {
+    FILE *file = fopen(memory[a_lower].data, "w"); // Open file for writing
+    if (file == NULL) {
+        printf("Error opening file.\n");
+        return;
     }
+    fprintf(file, "%s", memory[b_lower].data); // Write data to file
+    fclose(file); // Close file
+    printf("Data written to %s successfully.\n", memory[a_lower].data);
+    } else {
+      printf("Invalid writeFile instruction\n");
+    }
+  } else if (strcmp(Input, "printFromTo") == 0) {
+   
+    if (Input != NULL) {
+            for (int i = atoi(memory[a_lower].data); i <= atoi(memory[b_lower].data); i++) {
+              printf("%d \n", i);
+            }
+      }
   } else if (strcmp(Input, "semWait") == 0) {
     // Acquire a resource
 
@@ -337,7 +342,6 @@ printf("Token1: %s \n",Input);
     if (Input != NULL) {
     Input = strtok(NULL, " ");
       char* resource_name = strdup(Input); 
-        printf("Token: %s\n", resource_name);
         semWait(resource_name, 1); 
     } else {
       printf("Invalid semWait instruction\n");
@@ -421,7 +425,7 @@ void interpret_file(const char *filename) {
 
 int main() {
     initialize_memory();
-    interpret_file("Program_1.txt");
+    interpret_file("Program_3.txt");
 
     // interpret_file("Program_2.txt");
 
@@ -442,10 +446,9 @@ int main() {
     
     // Fetch the instruction from the memory using the program counter of the current process
  
-for (int i = 0; i < 7; i++) {
+for (int i = 0; i < 9; i++) {
     // Execute the fetched instruction
     char *currInst = memory[i].data;
-    printf("%s",memory[i].data);
     execute_instruction(currInst);
 }
     return 0;
