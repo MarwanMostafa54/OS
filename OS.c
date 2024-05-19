@@ -45,8 +45,10 @@ typedef struct {
 typedef struct {
     int pid;
     int priority;
+    int blocked;
 } Process;
 
+Process processes[3];
 
 typedef struct {
     char name[20];          // Name of the resource
@@ -123,7 +125,7 @@ void add_to_ready_queue(Process process) {
 
 // Function to select next process for execution
 Process select_next_process() {
-    Process next_process = {0, 0};
+    Process next_process = {0, 0, 0};
     for (int i = 0; i < NUM_PRIORITY_LEVELS; i++) {
         if (num_processes[i] > 0) {
             next_process = ready_queues[i][0];
@@ -166,6 +168,7 @@ void semWait(char resource_name[], int pid) {
     if (mutexes[index].locked) {
         mutexes[index].blocked_queue[mutexes[index].num_blocked] = pid;
         mutexes[index].num_blocked++;
+        processes[pid - 1].blocked = 1;
         printf("Process %d blocked on resource %s\n", pid, resource_name);
     } else {
         mutexes[index].locked = 1; // Lock the resource
@@ -203,7 +206,7 @@ void semSignal(char resource_name[]) {
             mutexes[index].blocked_queue[i - 1] = mutexes[index].blocked_queue[i];
         }
         mutexes[index].num_blocked--;
-
+        processes[pid_to_unblock - 1].blocked = 0;
         // Unblock the process (you can implement logic to move the unblocked process to its ready queue based on priority)
         printf("Process %d unblocked on resource %s\n", pid_to_unblock, resource_name);
     } else {
@@ -402,8 +405,10 @@ void interpret_file(const char *filename) {
         line_number++;
     }
     fclose(file);
-
-    add_to_ready_queue((Process) {pid, 1});
+    Process p = {pid, 1, 0};
+    processes[pid - 1] = p;
+    add_to_ready_queue(p);
+    
 }
 
 int main() {
@@ -411,7 +416,7 @@ int main() {
     // Interpret and load programs into memory
     interpret_file("Program_1.txt");
     interpret_file("Program_2.txt");
-    interpret_file("Program_3.txt");
+    //interpret_file("Program_3.txt");
 
     // Display memory contents and PCB information for debugging
     for (int i = 0; i < MEMORY_SIZE; i++) {
@@ -424,7 +429,7 @@ int main() {
         PCB pcb = pcb_table[i];
         printf("PCB[%d] PID: %d, State: %s, Priority: %d, PC: %d, Lower: %d, Upper: %d\n",
             i, pcb.pid, pcb.state, pcb.priority, pcb.program_counter, pcb.lower_bound, pcb.upper_bound);
-        strcpy(pcb.state, "Not Ready"); // Set initial state to "Ready"
+        strcpy(pcb.state, "Ready"); // Set initial state to "Ready"
     }
 
     while (1) {
@@ -445,7 +450,10 @@ int main() {
                 }
                 printf("\n");
 
-                execute_instruction(pcb);
+                if(processes[pcb->pid  - 1].blocked == 0){
+                  printf("Process %d is not blocked", pcb->pid);
+                  execute_instruction(pcb);
+                }
 
                 if (strcmp(pcb->state, "Terminated") == 0) {
                     printf("Process %d terminated\n", pcb->pid);
