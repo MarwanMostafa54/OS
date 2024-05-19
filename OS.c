@@ -116,34 +116,26 @@ int quantum[NUM_PRIORITY_LEVELS] = {BASE_QUANTUM, BASE_QUANTUM * 2, BASE_QUANTUM
 
 // Function to add process to ready queue
 void add_to_ready_queue(Process process) {
-    ready_queues[process.priority - 1][num_processes[process.priority - 1]] = process;
-    num_processes[process.priority - 1]++;
+    int priority = process.priority - 1;
+    ready_queues[priority][num_processes[priority]] = process;
+    num_processes[priority]++;
 }
 
 // Function to select next process for execution
 Process select_next_process() {
-    Process next_process;
-
-    // Iterate through priority levels starting from highest
+    Process next_process = {0, 0};
     for (int i = 0; i < NUM_PRIORITY_LEVELS; i++) {
-        // Check if there are processes in the current priority level
         if (num_processes[i] > 0) {
-            // Select the first process in the ready queue of the current priority level
             next_process = ready_queues[i][0];
-
-            // Move processes in the ready queue
             for (int j = 0; j < num_processes[i] - 1; j++) {
                 ready_queues[i][j] = ready_queues[i][j + 1];
             }
-
-            // Decrement number of processes in the ready queue
             num_processes[i]--;
             break;
         }
     }
-
     return next_process;
-} 
+}
 
 void semWait(char resource_name[], int pid) {
     // Find the mutex corresponding to the resource
@@ -221,12 +213,20 @@ void semSignal(char resource_name[]) {
     }
 }
 
-void execute_instruction(char *instruction) {
-printf("\n\n  Instruction: %s \n",instruction);
+void execute_instruction(PCB *pcb) {
+  if (pcb->program_counter > pcb->upper_bound) {
+        strcpy(pcb->state, "Terminated");
+        return;
+    }
+
+    printf("\n\nExecuting instruction: %s\n", memory[pcb->program_counter].data);
+
+    char *instruction = strdup(memory[pcb->program_counter].data);
 
      char *Input = strtok(instruction, " ");
     if (Input == NULL) {
         printf("Invalid instruction: %s\n", instruction);
+        free(instruction);
         return;
     }
     // Check the instruction type
@@ -234,7 +234,7 @@ printf("\n\n  Instruction: %s \n",instruction);
         // Print the value
         Input = strtok(NULL, " ");
         if (Input != NULL) {
-           
+          printf("%s \n", memory[b_lower].data); 
         } else {
             printf("Invalid print instruction\n");
         }
@@ -248,7 +248,7 @@ printf("\n\n  Instruction: %s \n",instruction);
                      if(strcmp(Input,"readFile")==0){
                     Input = strtok(NULL, " ");
                 if (Input != NULL) {
-                FILE *file = fopen(memory[a_lower].data, "r");
+                FILE *file = fopen(memory[b_lower].data, "r");
                 if (file != NULL) {
                     char data[50];
                     if (fgets(data, sizeof(data), file) != NULL) {
@@ -256,13 +256,14 @@ printf("\n\n  Instruction: %s \n",instruction);
                     if (newline != NULL) {
                         *newline = '\0';
                     }
-                    printf("Data read from file %s: %s\n", memory[a_lower].data, data);
+                    printf("Data read from file %s: %s\n", memory[b_lower].data, data);
+                    sprintf(memory[a_lower].data, "%s", data);
                     } else {
                     printf("File is empty or error reading\n");
                     }
                     fclose(file);
                 } else {
-                    printf("Error opening file for reading: %s\n", memory[a_lower].data);
+                    printf("Error opening file for reading: %s\n", memory[b_lower].data);
                 }
                 }
                   }
@@ -290,6 +291,7 @@ printf("\n\n  Instruction: %s \n",instruction);
                         *newline = '\0';
                     }
                     printf("Data read from file %s: %s\n", memory[a_lower].data, data);
+                    sprintf(memory[b_lower].data, "%s", data);
                     } else {
                     printf("File is empty or error reading\n");
                     }
@@ -341,8 +343,11 @@ printf("\n\n  Instruction: %s \n",instruction);
     
     if (Input != NULL) {
     Input = strtok(NULL, " ");
+    if(Input != NULL){
       char* resource_name = strdup(Input); 
-        semWait(resource_name, 1); 
+        semWait(resource_name, pcb->pid); 
+        free(resource_name);
+    }
     } else {
       printf("Invalid semWait instruction\n");
     }
@@ -350,13 +355,18 @@ printf("\n\n  Instruction: %s \n",instruction);
     // Release a resource
     Input = strtok(NULL, " ");
     if (Input != NULL) { 
-      semSignal(Input);
+      char* resource_name = strdup(Input);
+      semSignal(resource_name);
+      free(resource_name);
     } else {
       printf("Invalid semSignal instruction\n");
     }
   } else {
     printf("Unknown instruction: %s\n", Input);
   }
+
+  free(instruction);
+  pcb->program_counter++;
 }
 
 // Function to read and interpret instructions from a text file
@@ -371,13 +381,11 @@ void interpret_file(const char *filename) {
     char line[MAX_LINE_LENGTH];
     int line_count = 0;
 
-    // First pass: count the number of lines
     while (fgets(line, sizeof(line), file) != NULL) {
         line_count++;
     }
-    rewind(file); // Reset file pointer to the beginning
+    rewind(file);
 
-    // Allocate memory for the lines of code
     int lower_bound, upper_bound;
     if (allocate_memory(pid, line_count, &lower_bound, &upper_bound) == -1) {
         printf("Error: Not enough memory to allocate for process %d\n", pid);
@@ -385,51 +393,27 @@ void interpret_file(const char *filename) {
         return;
     }
 
-    // Create PCB for the process
-    PCB pcb;
-    pcb.pid = pid;
-    strcpy(pcb.state, "Not Ready");
-    pcb.priority = 0;  // Default priority
-    pcb.program_counter = lower_bound;
-    pcb.lower_bound = lower_bound;
-    pcb.upper_bound = upper_bound;
+    pcb_table[pcb_count++] = (PCB) {pid, "NOT READY", 1, 0, lower_bound, upper_bound};
 
-    // Store the PCB in the PCB table
-    pcb_table[pcb_count++] = pcb;
-
-    // Second pass: read the lines and store them in memory
-    int current_address = lower_bound;
+    int line_number = lower_bound;
     while (fgets(line, sizeof(line), file) != NULL) {
-        // Remove newline character if present
-        char *newline = strchr(line, '\n');
-        if (newline != NULL) {
-            *newline = '\0';
-        }
-
-        // Store the line in the memory array
-        strcpy(memory[current_address].data, line);
-        current_address++;
+        line[strcspn(line, "\n")] = 0;
+        strcpy(memory[line_number].data, line);
+        line_number++;
     }
-
     fclose(file);
+
+    add_to_ready_queue((Process) {pid, 1});
 }
-
-
-
-// int main() {
-//   const char *filename = "Program_1.txt";
-//     interpret_file(filename);
-//     return 0;
-
-// }
 
 int main() {
     initialize_memory();
+    // Interpret and load programs into memory
+    interpret_file("Program_1.txt");
+    interpret_file("Program_2.txt");
     interpret_file("Program_3.txt");
 
-    // interpret_file("Program_2.txt");
-
-    // interpret_file("Program_3.txt");
+    // Display memory contents and PCB information for debugging
     for (int i = 0; i < MEMORY_SIZE; i++) {
         if (strcmp(memory[i].name, "") != 0) {
             printf("Memory[%d] Name: %s, Data: %s\n", i, memory[i].name, memory[i].data);
@@ -440,17 +424,50 @@ int main() {
         PCB pcb = pcb_table[i];
         printf("PCB[%d] PID: %d, State: %s, Priority: %d, PC: %d, Lower: %d, Upper: %d\n",
             i, pcb.pid, pcb.state, pcb.priority, pcb.program_counter, pcb.lower_bound, pcb.upper_bound);
+        strcpy(pcb.state, "Not Ready"); // Set initial state to "Ready"
     }
 
-    // Process currPro = select_next_process();
-    
-    // Fetch the instruction from the memory using the program counter of the current process
- 
-for (int i = 0; i < 9; i++) {
-    // Execute the fetched instruction
-    char *currInst = memory[i].data;
-    execute_instruction(currInst);
-}
+    while (1) {
+        int process_executed = 0;
+        for (int i = 0; i < NUM_PRIORITY_LEVELS; i++) {
+            while (num_processes[i] > 0) {
+                Process currPro = select_next_process();
+                PCB *pcb = &pcb_table[currPro.pid - 1];
+                strcpy(pcb->state, "Running");
+                printf("Running Process: PID %d\n", pcb->pid);
+
+                // Print ready processes
+                printf("Ready Processes: ");
+                for (int j = 0; j < NUM_PRIORITY_LEVELS; j++) {
+                    for (int k = 0; k < num_processes[j]; k++) {
+                        printf("PID %d (Priority %d), ", ready_queues[j][k].pid, ready_queues[j][k].priority);
+                    }
+                }
+                printf("\n");
+
+                execute_instruction(pcb);
+
+                if (strcmp(pcb->state, "Terminated") == 0) {
+                    printf("Process %d terminated\n", pcb->pid);
+                } else {
+                    strcpy(pcb->state, "Ready");
+                    add_to_ready_queue(currPro); // Re-add the process to the ready queue if not terminated
+                }
+
+                process_executed = 1;
+                break; // Move to the next priority level after executing one process
+            }
+
+            if (process_executed) {
+                break;
+            }
+        }
+
+        if (!process_executed) {
+            break; // Exit the loop if no process was executed (all processes terminated or blocked)
+        }
+    }
+
     return 0;
 }
 
