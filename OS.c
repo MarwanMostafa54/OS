@@ -100,8 +100,12 @@ int allocate_memory(int pid, int num_lines_of_code, int *lower_bound, int *upper
     // Mark allocated memory slots with process ID
     if (*lower_bound != -1 && *upper_bound != -1) {
         for (int i = *lower_bound; i <= *upper_bound; i++) {
-            sprintf(memory[i].name, "Process%d", pid);
-        }
+            if(pid>3){
+            sprintf(memory[i].name, "Stored Data %d", pid);
+            }else{  
+            sprintf(memory[i].name, "Process %d", pid);
+         }        
+}
         return 0;  // Success
     }
 
@@ -271,6 +275,7 @@ void execute_instruction(PCB *pcb) {
                   }
             else{
                        if (allocate_memory(pid_a, num_lines_of_code, &a_lower, &a_upper) == 0) {
+                        pid_a+=2;
                             scanf("%s", value_a);
                         sprintf(memory[a_lower].data, "%s", value_a);
                             printf("Memory allocated for variable 'a'\n");
@@ -280,7 +285,6 @@ void execute_instruction(PCB *pcb) {
                   }
                   }else if(strcmp(Input, "b") == 0){
                         Input = strtok(NULL, " ");
-                      printf(" %s  ",Input);
                 if(strcmp(Input,"readFile")==0){
                     Input = strtok(NULL, " ");
                 if (Input != NULL) {
@@ -305,6 +309,7 @@ void execute_instruction(PCB *pcb) {
                   
             }else{
                        if (allocate_memory(pid_b, num_lines_of_code, &b_lower, &b_upper) == 0) {
+                        pid_b+=2;
                                 scanf("%s", value_b);
                         sprintf(memory[b_lower].data, "%s", value_b);
 
@@ -394,7 +399,6 @@ void interpret_file(const char *filename) {
         fclose(file);
         return;
     }
-
     pcb_table[pcb_count++] = (PCB) {pid, "READY", 1, lower_bound, lower_bound, upper_bound};
 
     int line_number = lower_bound;
@@ -416,6 +420,25 @@ int main() {
     interpret_file("Program_1.txt");
     interpret_file("Program_2.txt");
     interpret_file("Program_3.txt");
+for (int i = 0; i < 3; i++) {
+    strcpy(memory[23 + (i * 6)].name, "pcbID");
+    sprintf(memory[23 + (i * 6)].data, "%d", pcb_table[i].pid); // Convert int to string
+
+    strcpy(memory[24 + (i * 6)].name, "Priority");
+    sprintf(memory[24 + (i * 6)].data, "%d", pcb_table[i].priority); // Convert int to string
+
+    strcpy(memory[25 + (i * 6)].name, "State");
+    strcpy(memory[25 + (i * 6)].data, pcb_table[i].state); // Copy state string directly
+
+    strcpy(memory[26 + (i * 6)].name, "program_counter");
+    sprintf(memory[26 + (i * 6)].data, "%d", pcb_table[i].program_counter); // Convert int to string
+
+    strcpy(memory[27 + (i * 6)].name, "Lower Bound");
+    sprintf(memory[27 + (i * 6)].data, "%d", pcb_table[i].lower_bound); // Convert int to string
+
+    strcpy(memory[28 + (i * 6)].name, "Upper Bound");
+    sprintf(memory[28 + (i * 6)].data, "%d", pcb_table[i].upper_bound); // Convert int to string
+}
 
     // Display memory contents and PCB information for debugging
     for (int i = 0; i < MEMORY_SIZE; i++) {
