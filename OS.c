@@ -79,7 +79,6 @@ int get_next_pid() {
 
 // Function to allocate memory for a process
 int allocate_memory(int pid, int num_lines_of_code, int *lower_bound, int *upper_bound) {
-    printf("%d \n",pid);
     *lower_bound = -1;
     *upper_bound = -1;
 
@@ -472,12 +471,17 @@ int main() {
                             execute_instruction(pcb);
                         }
                         current_quantum_3 *=2 ;
-                    } 
-                    
+                    }
+                    printf("\n"); 
+                    for (int i = 0; i < MEMORY_SIZE; i++) {
+                        if (strcmp(memory[i].name, "") != 0) {
+                            printf("Memory[%d] Name: %s, Data: %s\n", i, memory[i].name, memory[i].data);
+                        }
+                    }
                 }
 
                 if (strcmp(pcb->state, "Terminated") == 0) {
-                    printf("Process %d terminated\n", pcb->pid);
+                    printf("\nProcess %d terminated\n", pcb->pid);
                 } else {
                     strcpy(pcb->state, "Ready");
                     add_to_ready_queue(currPro); // Re-add the process to the ready queue if not terminated
