@@ -396,7 +396,7 @@ void interpret_file(const char *filename) {
         return;
     }
 
-    pcb_table[pcb_count++] = (PCB) {pid, "NOT READY", 1, 0, lower_bound, upper_bound};
+    pcb_table[pcb_count++] = (PCB) {pid, "READY", 1, lower_bound, lower_bound, upper_bound};
 
     int line_number = lower_bound;
     while (fgets(line, sizeof(line), file) != NULL) {
@@ -416,7 +416,7 @@ int main() {
     // Interpret and load programs into memory
     interpret_file("Program_1.txt");
     interpret_file("Program_2.txt");
-    //interpret_file("Program_3.txt");
+    interpret_file("Program_3.txt");
 
     // Display memory contents and PCB information for debugging
     for (int i = 0; i < MEMORY_SIZE; i++) {
@@ -432,6 +432,10 @@ int main() {
         strcpy(pcb.state, "Ready"); // Set initial state to "Ready"
     }
 
+    int current_quantum_1 = 1;
+    int current_quantum_2 = 1;
+    int current_quantum_3 = 1;
+
     while (1) {
         int process_executed = 0;
         for (int i = 0; i < NUM_PRIORITY_LEVELS; i++) {
@@ -439,7 +443,7 @@ int main() {
                 Process currPro = select_next_process();
                 PCB *pcb = &pcb_table[currPro.pid - 1];
                 strcpy(pcb->state, "Running");
-                printf("Running Process: PID %d\n", pcb->pid);
+                printf("\nRunning Process: PID %d\n", pcb->pid);
 
                 // Print ready processes
                 printf("Ready Processes: ");
@@ -451,8 +455,25 @@ int main() {
                 printf("\n");
 
                 if(processes[pcb->pid  - 1].blocked == 0){
-                  printf("Process %d is not blocked", pcb->pid);
-                  execute_instruction(pcb);
+                    if(pcb->pid == 1){
+                        for(int i = 0; i < current_quantum_1; i++){
+                            execute_instruction(pcb);
+                        }
+                        current_quantum_1 *=2 ;
+                    } 
+                    if(pcb->pid == 2){
+                        for(int i = 0; i < current_quantum_2; i++){
+                            execute_instruction(pcb);
+                        }
+                        current_quantum_2 *=2 ;
+                    } 
+                    if(pcb->pid == 3){
+                        for(int i = 0; i < current_quantum_3; i++){
+                            execute_instruction(pcb);
+                        }
+                        current_quantum_3 *=2 ;
+                    } 
+                    
                 }
 
                 if (strcmp(pcb->state, "Terminated") == 0) {
